@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>EcoLink JA ♻️</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+    rel="stylesheet">
+
+  <!-- AI Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #10b981;
+      --primary-dark: #047857;
+      --accent: #34d399;
+      --bg-gradient: linear-gradient(180deg, #faf9e3 20%, #28773a 100%);
+      --glass: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.6);
+      --text-main: #064e3b;
+      --text-muted: #374151;
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('bottles.png') bottom center no-repeat;
+      background-size: 100% auto;
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: 'Outfit', sans-serif;
+      color: var(--primary-dark);
+    }
+
+    /* Header */
+    header {
+      background: repeating-linear-gradient(45deg,
+          #144321,
+          #144321 10px,
+          #1a5329 10px,
+          #1a5329 20px);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 1.25rem 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid var(--glass-border);
+      display: none;
+      /* Hidden on Welcome */
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    header h1 .brand-text {
+      color: #f8fafc;
+    }
+
+    header strong {
+      background: #f7f8f0;
+      color: #065f46;
+      padding: 6px 12px;
+      border-radius: 99px;
+      font-size: 0.9rem;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    main {
+      padding: 2rem 1.5rem;
+      max-width: 600px;
+      /* narrowed for mobile-first feel */
+      margin: auto;
+      padding-bottom: 7rem;
+    }
+
+    .page {
+      display: none;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-lg);
+      text-align: center;
+      transition: transform 0.2s;
+    }
+
+    .card:active {
+      transform: scale(0.99);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    /* Inputs & Buttons */
+    button {
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: none;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 99px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      font-family: 'Outfit', sans-serif;
+      cursor: pointer;
+      width: 100%;
+      margin: 0.5rem 0;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--primary-dark);
+      border: 2px solid #e0e7ff;
+      /* light border */
+      box-shadow: var(--shadow-sm);
+    }
+
+    input[type="file"] {
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+
+    /* Webcam Area */
+    #webcam-container {
+      margin-top: 1.5rem;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+
+    #webcam-container canvas {
+      display: block;
+      width: 100%;
+    }
+
+    #preview {
+      margin-top: 1rem;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 250px;
+      border: 4px solid rgb(255, 255, 255);
+      box-shadow: var(--shadow-sm);
+      display: none;
+      /* Hide empty image initially */
+    }
+
+    #preview[src] {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .prediction {
+      background: rgb(255, 255, 255);
+      color: var(--primary-dark);
+      margin: 0.8rem auto;
+      padding: 0.6rem 1.2rem;
+      border-radius: 99px;
+      display: inline-block;
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid #d1fae5;
+    }
+
+    /* List Items */
+    .list-item {
+      background: white;
+      padding: 1.2rem;
+      border-radius: 16px;
+      margin-bottom: 0.8rem;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      font-weight: 500;
+    }
+
+    .list-item::before {
+      content: '♻️';
+      font-size: 1.2rem;
+      background: #ecfdf5;
+      padding: 8px;
+      border-radius: 50%;
+    }
+
+    /* Bottom Nav */
+    nav {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 400px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      justify-content: space-between;
+      padding: 0.8rem 2rem;
+      border-radius: 999px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      z-index: 100;
+      display: none;
+      /* Hidden on Welcome */
+    }
+
+    nav span {
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #9ca3af;
+      transition: color 0.2s;
+    }
+
+    nav span:hover,
+    nav span.active-nav {
+      color: var(--primary);
+    }
+
+    nav span::before {
+      font-size: 1.4rem;
+      margin-bottom: -2px;
+    }
+
+    /* Icons for nav - simplified purely CSS/text for now */
+    nav span:nth-child(1)::before {
+      content: '🏠';
+    }
+
+    nav span:nth-child(2)::before {
+      content: '♻️';
+    }
+
+    nav span:nth-child(3)::before {
+      content: '🧾';
+    }
+
+    nav span:nth-child(4)::before {
+      content: '🎁';
+    }
+
+    nav span:nth-child(5)::before {
+      content: '🤝';
+    }
+
+    nav span:nth-child(6)::before {
+      content: '👤';
+    }
+
+    .partner-section h3 {
+      font-size: 1rem;
+      color: var(--primary-dark);
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      text-align: left;
+    }
+
+    .partner-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .partner-badge {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 6px 12px;
+      border-radius: 99px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .status-msg {
+      margin-top: 1rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      min-height: 1.2rem;
+      transition: all 0.3s;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1><span class="brand-text">EcoLink JA</span> ♻️</h1>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <strong id="points-display">🌱 0 pts</strong>
+      <strong id="pending-points-display" style="margin-left:10px; color:#f59e0b;">⏳ 0 pending</strong>
+      <span onclick="showPage('contact')" style="font-size:1.2rem; cursor:pointer;" title="Support">❓</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- WELCOME PAGE -->
+    <section id="welcome" class="page active" style="text-align:center; padding-top:4rem;">
+      <h1 style="font-size:3rem; margin-bottom:0.5rem;">EcoLink JA ♻️</h1>
+      <p style="font-size:1.2rem; color:var(--text-muted); margin-bottom:0.5rem;">Recycle. Earn. Sustain.</p>
+      <p style="font-style:italic; color:var(--primary); margin-bottom:2rem; font-size:0.95rem;">"Small acts, when
+        multiplied by millions of people, can transform the world."</p>
+
+      <div class="card">
+        <h2>Welcome Back!</h2>
+        <p>Sign in to continue tracking your recycling impact.</p>
+        <input id="login-name" type="text" placeholder="Name"
+          style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ccc;">
+        <input id="login-email" type="text" placeholder="Email"
+          style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ccc;">
+        <input type="password" placeholder="Password"
+          style="width:100%; padding:12px; margin-bottom:20px; border-radius:12px; border:1px solid #ccc;">
+        <button onclick="startApp()">Start Recycling</button>
+        <div id="welcome-status-msg" class="status-msg"></div>
+      </div>
+    </section>
+
+    <!-- HOME / SCAN -->
+    <section id="home" class="page">
+      <div class="card" style="margin-top: 4rem;">
+        <h2>Scan a Bottle</h2>
+        <p>Use AI to identify recyclable bottles.</p>
+        <button id="webcam-btn" onclick="toggleWebcam()">📷 Start Camera</button><br>
+        <button class="secondary"
+          onclick="window.open('https://www.google.com/maps/search/recycling+center+near+me', '_blank')">📍 Find
+          Recycling Depot</button>
+
+
+
+        <div id="webcam-container"></div>
+        <img id="preview" width="220" />
+        <div id="label-container"></div>
+        <div id="webcam-status-msg" class="status-msg"></div>
+      </div>
+    </section>
+
+    <!-- BOTTLES PAGE -->
+    <section id="bottles" class="page">
+      <div class="card">
+        <h2>Your Crate 📦</h2>
+        <div style="background:#e5e7eb; border-radius:99px; height:12px; width:100%; margin: 10px 0; overflow:hidden;">
+          <div id="crate-progress" style="background:var(--primary); width:15%; height:100%;"></div>
+        </div>
+        <p style="font-size:0.9rem; margin-bottom:1rem;">3 / 20 bottles to fill Crate #1</p>
+
+        <div style="display:flex; gap:1rem;">
+          <div style="flex:1;">
+            <h3 style="font-size:1rem; margin-bottom:0.5rem; color:var(--primary-dark);">Plastic 🥤</h3>
+            <div id="plastic-list">
+              <!-- Empty -->
+            </div>
+          </div>
+          <div style="flex:1;">
+            <h3 style="font-size:1rem; margin-bottom:0.5rem; color:var(--primary-dark);">Glass 🍾</h3>
+            <div id="glass-list">
+              <!-- Empty -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECEIPTS PAGE -->
+    <section id="receipts" class="page">
+      <div class="card">
+        <h2>Recycling Receipts 🧾</h2>
+        <p>Scan receipt to verify & earn points.</p>
+        <button id="receipt-scanner-btn" onclick="initReceiptScanner()">📷 Start Receipt Scanner</button>
+        <div id="receipt-webcam-container" style="margin-top:1rem;"></div>
+        <div id="receipt-label-container" style="margin-top:1rem;"></div>
+        <div id="receipt-status-msg" class="status-msg"></div>
+
+      </div>
+    </section>
+    </div>
+    </section>
+
+    <!-- CONTACT PAGE -->
+    <section id="contact" class="page">
+      <div class="card">
+        <h2>Contact Support 📞</h2>
+        <p>Need help with your account or recycling?</p>
+        <a href="mailto:support@ecolinkja.com" style="text-decoration:none;">
+          <button>✉️ support@ecolinkja.com</button>
+        </a>
+        <button class="secondary" onclick="showPage('home')">Back to Home</button>
+      </div>
+    </section>
+
+    <section id="rewards" class="page">
+      <div class="card">
+        <h2>Rewards 🎁</h2>
+
+        <!-- Pending Points Card -->
+        <div
+          style="background:#fffbeb; padding:20px; border-radius:20px; margin-bottom:1rem; border:1px solid #fde68a;">
+          <strong id="rewards-pending-display" style="font-size:2.5rem; color:#b45309; display:block;">0</strong>
+          <span style="font-size:0.9rem; color:#92400e; font-weight:600;">EcoPoints Pending</span>
+          <p style="font-size:0.75rem; margin-top:5px; color:#92400e;">Verify with a receipt to add to total</p>
+        </div>
+
+        <!-- Total Points Card -->
+        <div
+          style="background:#f0fdf4; padding:20px; border-radius:20px; margin-bottom:1.5rem; border:1px solid #bbf7d0;">
+          <strong id="rewards-points-display" style="font-size:3rem; color:var(--primary); display:block;">0</strong>
+          <span style="font-size:1rem; color:#166534;">Total Verified Points</span>
+          <div style="margin-top:10px; height:8px; background:#dcfce7; border-radius:99px; overflow:hidden;">
+            <div id="rewards-progress-bar"
+              style="width:0%; height:100%; background:var(--primary); transition: width 0.3s ease;"></div>
+          </div>
+          <p style="font-size:0.8rem; margin-top:5px; color:#166534;"><span id="rewards-goal-text">450</span> points
+            until EcoLink Card</p>
+        </div>
+
+        <h3 style="text-align:left; font-size:1rem; margin-bottom:10px;">EcoLink Card</h3>
+        <button class="secondary" style="margin-bottom:1.5rem; border-color:var(--primary); color:var(--primary);">💳
+          Apply for EcoLink Card</button>
+
+        <h3 style="text-align:left; font-size:1rem; margin-bottom:10px;">Redeem</h3>
+        <button class="secondary">🛒 50 pts – 5% Off</button><br>
+        <button class="secondary">🥤 100 pts – Free Drink</button><br>
+      </div>
+    </section>
+
+    <!-- PROFILE PAGE -->
+    <section id="profile" class="page">
+      <div class="card">
+        <div style="text-align:center; margin-bottom:1.5rem;">
+          <div style="text-align:center; margin-bottom:1.5rem;">
+            <img id="profile-img" src=""
+              style="width:100px; height:100px; border-radius:50%; margin:0 auto 10px; display:block; border: 4px solid white; box-shadow: var(--shadow-sm);">
+            <h2 id="profile-name" style="margin:0;"></h2>
+            <p id="profile-email" style="margin:0; font-size:0.9rem;"></p>
+          </div>
+
+          <div style="flex:1; background:#f0fdf4; padding:10px; border-radius:12px; border:1px solid #bbf7d0;">
+            <strong style="display:block; font-size:1.2rem; color:var(--primary);"><span
+                id="profile-bottle-count">0</span></strong>
+            <span style="font-size:0.8rem;">Bottles</span>
+          </div>
+
+          <div style="margin-top:1.5rem;">
+            <button class="secondary" onclick="showPage('rewards')">💎 View EcoPoints</button>
+          </div>
+
+          <button class="secondary" style="margin-top:2rem; border-color:#fca5a5; color:#b91c1c;"
+            onclick="location.reload()">Sign Out</button>
+        </div>
+    </section>
+
+    <!-- PARTNERS PAGE -->
+    <section id="partners" class="page">
+      <div class="card">
+        <h2>Our Partners 🤝</h2>
+        <p>Working together for a greener Jamaica.</p>
+
+        <div class="partner-section">
+          <h3>Supermarket Partners 🛒</h3>
+          <div class="partner-list">
+            <span class="partner-badge">Hi-Lo Food Stores</span>
+            <span class="partner-badge">Loshusan</span>
+            <span class="partner-badge">Supervalu</span>
+            <span class="partner-badge">Lee's Food Fair</span>
+          </div>
+
+          <h3>Recycling Partners ♻️</h3>
+          <div class="partner-list">
+            <span class="partner-badge">Jamaica Waste Industries Ltd</span>
+            <span class="partner-badge">Recycling Partners of Jamaica</span>
+            <span class="partner-badge">Caribbean Export & Recycling Company Ltd</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav>
+    <span onclick="showPage('home')">Home</span>
+    <span onclick="showPage('bottles')">Bottles</span>
+    <span onclick="showPage('receipts')">Receipts</span>
+    <span onclick="showPage('rewards')">Rewards</span>
+    <span onclick="showPage('partners')">Partners</span>
+    <span onclick="showPage('profile')">Profile</span>
+  </nav>
+
+  <script>
+    const URL = "./my_model/";
+    let model, webcam;
+    let lastAddedClass = "";
+
+    // START Global State
+    let points = 0;
+    let pendingPoints = 0;
+    let scannedBottles = 0;
+    let receiptExtractedCount = 0;
+    // END Global State
+
+    // Receipt Scanner Variables
+    const RECEIPT_URL = "./my_model2/";
+    let receiptModel, receiptWebcam, receiptLabelContainer, receiptMaxPredictions;
+    let isReceiptScannerRunning = false;
+    let lastAddedReceipt = ""; // Track last detected receipt to prevent duplicates
+
+    function showMsg(id, text, type = 'success') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerText = text;
+      el.style.color = type === 'success' ? 'var(--primary)' : '#ef4444';
+      // Auto-clear success messages
+      if (type === 'success') {
+        setTimeout(() => { if (el.innerText === text) el.innerText = ''; }, 3000);
+      }
+    }
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function startApp() {
+      // Get Inputs
+      const nameInput = document.getElementById('login-name');
+      const emailInput = document.getElementById('login-email');
+
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+
+      if (!name || !email) {
+        showMsg("welcome-status-msg", "❌ Please enter both Name and Email to start.", "error");
+        return;
+      }
+
+      // Update Profile
+      document.getElementById('profile-name').innerText = name;
+      document.getElementById('profile-email').innerText = email;
+      document.getElementById('profile-img').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=dcfce7&color=10b981&size=150`;
+
+      // Hide Welcome
+      document.getElementById('welcome').classList.remove('active');
+
+      // Show Home
+      document.getElementById('home').classList.add('active');
+
+      // Show Header & Nav
+      document.querySelector('header').style.display = 'flex';
+      document.querySelector('nav').style.display = 'flex';
+    }
+
+    async function loadModel() {
+      if (!model) {
+        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+      }
+    }
+
+    let isWebcamRunning = false;
+    let requestAnimId;
+
+    async function toggleWebcam() {
+      if (isWebcamRunning) {
+        stopWebcam();
+      } else {
+        initWebcam();
+      }
+    }
+
+    async function initWebcam() {
+      if (isWebcamRunning) return;
+      try {
+        await loadModel();
+        webcam = new tmImage.Webcam(224, 224, true);
+        await webcam.setup();
+        await webcam.play();
+        document.getElementById("webcam-container").innerHTML = "";
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+
+        isWebcamRunning = true;
+        document.getElementById("webcam-btn").innerText = "🛑 Stop Camera";
+        document.getElementById("webcam-btn").style.background = "#ef4444"; // Red for stop
+
+        requestAnimationFrame(loop);
+      } catch {
+        showMsg("webcam-status-msg", "❌ Camera unavailable — please upload an image instead.", "error");
+      }
+    }
+
+    function stopWebcam() {
+      if (webcam && isWebcamRunning) {
+        webcam.stop();
+        isWebcamRunning = false;
+        if (requestAnimId) cancelAnimationFrame(requestAnimId);
+        document.getElementById("webcam-container").innerHTML = ""; // Clear canvas
+
+        document.getElementById("webcam-btn").innerText = "📷 Start Camera";
+        document.getElementById("webcam-btn").style.background = ""; // Reset color
+
+        lastAddedClass = ""; // Reset de-dupe memory on stop
+      }
+    }
+
+    async function loop() {
+      if (!isWebcamRunning) return;
+      webcam.update();
+      await predict(webcam.canvas);
+      requestAnimId = requestAnimationFrame(loop);
+    }
+
+    async function predictUpload(event) {
+      await loadModel();
+      const img = document.getElementById("preview");
+      img.src = URL.createObjectURL(event.target.files[0]);
+      img.onload = async () => predict(img);
+    }
+
+    async function predict(image) {
+      const prediction = await model.predict(image);
+      const container = document.getElementById("label-container");
+      container.innerHTML = "";
+
+      let highest = prediction[0]; // assume first item has highest probability initially
+      prediction.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "prediction";
+        div.textContent = `${p.className}: ${(p.probability * 100).toFixed(1)}%`;
+        container.appendChild(div);
+
+        if (p.probability > highest.probability) highest = p;
+      });
+
+      // Auto-add if confidence >= 80%
+      if (highest.probability >= 0.8 && highest.className !== "Not Bottle") {
+        if (highest.className !== lastAddedClass) {
+          addBottle(highest.className);
+          lastAddedClass = highest.className;
+          stopWebcam();
+          document.getElementById("webcam-btn").innerText = "📷 Scan Another";
+        }
+      } else if (highest.className === "Not Bottle") {
+        lastAddedClass = ""; // Reset when bottle is removed/not seen
+      }
+    }
+
+    function addBottle(className) {
+      const newBottle = document.createElement("div");
+      newBottle.className = "list-item";
+
+      // Customize details & Sorting
+      let details = "";
+      let type = "plastic"; // Default
+      let size = "Unknown size";
+
+      const lowerClass = className.toLowerCase();
+
+      if (className === "Tru Juice" || lowerClass.includes("tru juice")) {
+        size = "473ml";
+        type = "plastic";
+      } else if (className === "Water" || lowerClass.includes("water") || lowerClass.includes("plastic")) {
+        size = "500ml";
+        type = "plastic";
+      } else if (lowerClass.includes("glass")) {
+        size = "330ml";
+        type = "glass";
+      }
+
+      details = `${className} – ${size}`;
+      newBottle.textContent = details;
+
+      // Determine list container
+      const listId = type === "glass" ? "glass-list" : "plastic-list";
+      const targetList = document.getElementById(listId);
+
+      // Prepend to top of list
+      if (targetList.firstChild) {
+        targetList.insertBefore(newBottle, targetList.firstChild);
+      } else {
+        targetList.appendChild(newBottle);
+      }
+
+      // Animation
+      // Add pending points (not actual points - need receipt to convert)
+      pendingPoints += 10;
+      document.getElementById("pending-points-display").innerText = `⏳ ${pendingPoints} pending`;
+
+      // Update Rewards Page Pending Display
+      if (document.getElementById("rewards-pending-display")) {
+        document.getElementById("rewards-pending-display").innerText = pendingPoints;
+      }
+
+      scannedBottles++;
+      updateCrateUI();
+      // Update Profile Bottle Count
+      const profileCount = document.getElementById("profile-bottle-count");
+      if (profileCount) profileCount.innerText = scannedBottles;
+
+      // Auto-stop and feedback
+      stopWebcam();
+      document.getElementById("webcam-btn").innerText = "📷 Scan Another";
+    }
+
+    ///////////////////////////////////
+    // NEW LOGIC FOR FULL FEATURES
+    ///////////////////////////////////
+
+    function updatePoints(amount) {
+      points += amount;
+      // Header points display removed - only update rewards page
+      if (document.getElementById("rewards-points-display")) {
+        document.getElementById("rewards-points-display").innerText = points;
+      }
+      if (document.getElementById("rewards-progress-bar")) {
+        const percent = Math.min((points / 450) * 100, 100);
+        document.getElementById("rewards-progress-bar").style.width = `${percent}%`;
+      }
+      if (document.getElementById("rewards-goal-text")) {
+        const remaining = Math.max(0, 450 - points);
+        document.getElementById("rewards-goal-text").innerText = remaining;
+      }
+    }
+
+    function updateCrateUI() {
+      const crateSize = 20;
+      const currentInCrate = scannedBottles % crateSize;
+      const crateNum = Math.floor(scannedBottles / crateSize) + 1;
+
+      const percent = (currentInCrate / crateSize) * 100;
+      document.getElementById("crate-progress").style.width = `${percent}%`;
+
+      // Find the <p> tag in the bottles section
+      const statusText = document.querySelector("#bottles .card p");
+      statusText.innerText = `${currentInCrate} / ${crateSize} bottles to fill Crate #${crateNum}`;
+    }
+
+
+
+    // RECEIPT SCANNER FUNCTIONS
+    async function initReceiptScanner() {
+      if (isReceiptScannerRunning) {
+        stopReceiptScanner();
+        return;
+      }
+
+      const modelURL = RECEIPT_URL + "model.json";
+      const metadataURL = RECEIPT_URL + "metadata.json";
+
+      try {
+        // Load the model and metadata
+        receiptModel = await tmImage.load(modelURL, metadataURL);
+        receiptMaxPredictions = receiptModel.getTotalClasses();
+
+        // Setup webcam
+        const flip = true;
+        receiptWebcam = new tmImage.Webcam(200, 200, flip);
+        await receiptWebcam.setup();
+        await receiptWebcam.play();
+        window.requestAnimationFrame(receiptLoop);
+
+        // Append elements to the DOM
+        const container = document.getElementById("receipt-webcam-container");
+        container.innerHTML = "";
+        container.appendChild(receiptWebcam.canvas);
+
+        receiptLabelContainer = document.getElementById("receipt-label-container");
+        receiptLabelContainer.innerHTML = "";
+        for (let i = 0; i < receiptMaxPredictions; i++) {
+          receiptLabelContainer.appendChild(document.createElement("div"));
+        }
+
+        isReceiptScannerRunning = true;
+        document.getElementById("receipt-scanner-btn").innerText = "🛑 Stop Scanner";
+        document.getElementById("receipt-scanner-btn").style.background = "#ef4444";
+        showMsg("receipt-status-msg", "🔍 Scanner active...", "success");
+      } catch (error) {
+        showMsg("receipt-status-msg", "❌ Camera unavailable or model not found.", "error");
+        console.error(error);
+      }
+    }
+
+    function stopReceiptScanner() {
+      if (receiptWebcam && isReceiptScannerRunning) {
+        receiptWebcam.stop();
+        isReceiptScannerRunning = false;
+        document.getElementById("receipt-webcam-container").innerHTML = "";
+        document.getElementById("receipt-label-container").innerHTML = "";
+        document.getElementById("receipt-scanner-btn").innerText = "📷 Start Receipt Scanner";
+        document.getElementById("receipt-scanner-btn").style.background = "";
+
+        lastAddedReceipt = ""; // Reset on stop
+      }
+    }
+
+    async function receiptLoop() {
+      if (!isReceiptScannerRunning) return;
+      receiptWebcam.update();
+      await predictReceipt();
+      window.requestAnimationFrame(receiptLoop);
+    }
+
+    async function predictReceipt() {
+      const prediction = await receiptModel.predict(receiptWebcam.canvas);
+
+      let highestPrediction = prediction[0];
+      for (let i = 0; i < receiptMaxPredictions; i++) {
+        const classPrediction =
+          prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+        receiptLabelContainer.childNodes[i].innerHTML = classPrediction;
+
+        if (prediction[i].probability > highestPrediction.probability) {
+          highestPrediction = prediction[i];
+        }
+      }
+
+      // Check if "Receipt" detected with 80%+ confidence
+      if (highestPrediction.probability >= 0.80 &&
+        highestPrediction.className === "Receipt") {
+
+        // Only process if we previously saw "Not Receipt" (prevents false positives on startup)
+        if (lastAddedReceipt === "Not Receipt") {
+          // Convert pending points to actual points
+          if (pendingPoints > 0) {
+            points += pendingPoints;
+            document.getElementById("points-display").innerText = `🌱 ${points} pts`;
+
+            // Update rewards page if it exists
+            if (document.getElementById("rewards-points-display")) {
+              document.getElementById("rewards-points-display").innerText = points;
+            }
+            if (document.getElementById("rewards-progress-bar")) {
+              const percent = Math.min((points / 450) * 100, 100);
+              document.getElementById("rewards-progress-bar").style.width = `${percent}%`;
+            }
+            if (document.getElementById("rewards-goal-text")) {
+              const remaining = Math.max(0, 450 - points);
+              document.getElementById("rewards-goal-text").innerText = remaining;
+            }
+
+            // Update Rewards Page Pending Display
+            if (document.getElementById("rewards-pending-display")) {
+              document.getElementById("rewards-pending-display").innerText = 0;
+            }
+
+            const convertedPoints = pendingPoints;
+            pendingPoints = 0;
+            document.getElementById("pending-points-display").innerText = `⏳ 0 pending`;
+
+            lastAddedReceipt = "Receipt";
+            stopReceiptScanner();
+            const statusMsg = document.getElementById("receipt-status-msg");
+            if (statusMsg) {
+              statusMsg.innerText = `✅ Verified! ${convertedPoints} pts added.`;
+              statusMsg.style.color = "var(--primary)";
+            }
+          } else {
+            stopReceiptScanner();
+            const statusMsg = document.getElementById("receipt-status-msg");
+            if (statusMsg) {
+              statusMsg.innerText = "❌ No pending points to convert.";
+              statusMsg.style.color = "#ef4444";
+            }
+          }
+        } else if (lastAddedReceipt === "") {
+          // First detection - don't process, just track it
+          lastAddedReceipt = "Receipt";
+        }
+      } else if (highestPrediction.className === "Not Receipt") {
+        lastAddedReceipt = "Not Receipt"; // Track that we're seeing "not receipt"
+      }
+    }
+
+
+
+    // Initialize UI
+    updateCrateUI();
+  </script>
+
+</body>
+
+</html>
